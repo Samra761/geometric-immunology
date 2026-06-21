@@ -1,0 +1,7 @@
+biopython
+numpy
+scipy
+torch
+torch-geometric
+matplotlib
+scikit-learn
