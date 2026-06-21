@@ -1,9 +1,12 @@
 import os
 import numpy as np
 import torch
-from torch_geometric.data import Data, DataLoader
+import torch.nn as nn
+import matplotlib.pyplot as plt
+from torch_geometric.loader import DataLoader
+from torch_geometric.data import Data
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 from model import TCRBindingGNN
 
 def load_graphs(graph_dir):
@@ -15,12 +18,9 @@ def load_graphs(graph_dir):
         name = ff.replace("_features.npy", "")
         features = np.load(os.path.join(graph_dir, ff))
         edges = np.load(os.path.join(graph_dir, f"{name}_edges.npy"))
-        labels = np.load(os.path.join(graph_dir, f"{name}_labels.npy"))
         
         x = torch.tensor(features, dtype=torch.float)
         edge_index = torch.tensor(edges, dtype=torch.long)
-        
-        # graph label: 1 if has TCR binding peptide (all our structures do)
         y = torch.tensor([1.0], dtype=torch.float)
         
         data = Data(x=x, edge_index=edge_index, y=y)
@@ -34,7 +34,6 @@ def train():
     graph_dir = "data/graphs"
     graphs = load_graphs(graph_dir)
     
-    # since all are positive, create negative samples by shuffling features
     negatives = []
     for g in graphs:
         neg = Data(
@@ -45,7 +44,6 @@ def train():
         negatives.append(neg)
     
     all_graphs = graphs + negatives
-    
     train_data, test_data = train_test_split(all_graphs, test_size=0.2, random_state=42)
     
     train_loader = DataLoader(train_data, batch_size=2, shuffle=True)
@@ -54,6 +52,9 @@ def train():
     model = TCRBindingGNN()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.BCEWithLogitsLoss()
+    
+    loss_history = []
+    auroc_history = []
     
     print("Training...")
     for epoch in range(1, 31):
@@ -67,13 +68,25 @@ def train():
             optimizer.step()
             total_loss += loss.item()
         
+        avg_loss = total_loss / len(train_loader)
+        loss_history.append(avg_loss)
+        
+        # evaluate AUROC every 5 epochs
         if epoch % 5 == 0:
-            print(f"Epoch {epoch} | Loss: {total_loss/len(train_loader):.4f}")
+            model.eval()
+            preds, labels = [], []
+            with torch.no_grad():
+                for batch in test_loader:
+                    out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch).squeeze())
+                    preds.extend(out.tolist())
+                    labels.extend(batch.y.tolist())
+            auc = roc_auc_score(labels, preds)
+            auroc_history.append((epoch, auc))
+            print(f"Epoch {epoch} | Loss: {avg_loss:.4f} | AUROC: {auc:.4f}")
     
-    # Evaluate
+    # final evaluation
     model.eval()
-    all_preds = []
-    all_labels = []
+    all_preds, all_labels = [], []
     with torch.no_grad():
         for batch in test_loader:
             out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch).squeeze())
@@ -81,12 +94,45 @@ def train():
             all_labels.extend(batch.y.tolist())
     
     auc = roc_auc_score(all_labels, all_preds)
-    print(f"\nTest AUROC: {auc:.4f}")
+    print(f"\nFinal Test AUROC: {auc:.4f}")
+    
+    # confusion matrix
+    binary_preds = [1 if p >= 0.5 else 0 for p in all_preds]
+    cm = confusion_matrix(all_labels, binary_preds)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Non-binding", "Binding"])
+    disp.plot(cmap="Blues")
+    plt.title("Confusion Matrix")
+    plt.savefig("results/confusion_matrix.png", dpi=150)
+    plt.close()
+    print("Saved: results/confusion_matrix.png")
+    
+    # loss curve
+    plt.figure(figsize=(8, 4))
+    plt.plot(range(1, 31), loss_history, color="steelblue", linewidth=2)
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training Loss Curve")
+    plt.tight_layout()
+    plt.savefig("results/loss_curve.png", dpi=150)
+    plt.close()
+    print("Saved: results/loss_curve.png")
+    
+    # AUROC curve
+    epochs_tracked = [e for e, _ in auroc_history]
+    aurocs = [a for _, a in auroc_history]
+    plt.figure(figsize=(8, 4))
+    plt.plot(epochs_tracked, aurocs, color="green", linewidth=2, marker="o")
+    plt.xlabel("Epoch")
+    plt.ylabel("AUROC")
+    plt.title("AUROC over Training")
+    plt.tight_layout()
+    plt.savefig("results/auroc_curve.png", dpi=150)
+    plt.close()
+    print("Saved: results/auroc_curve.png")
     
     torch.save(model.state_dict(), "results/model.pt")
     print("Model saved to results/model.pt")
 
 
-import torch.nn as nn
 if __name__ == "__main__":
     train()

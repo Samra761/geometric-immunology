@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch_geometric.nn import GCNConv, global_mean_pool
 
 class TCRBindingGNN(nn.Module):
-    def __init__(self, in_channels=5, hidden=64, out_channels=1):
+    def __init__(self, in_channels=6, hidden=64, out_channels=1):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden)
         self.conv2 = GCNConv(hidden, hidden * 2)
