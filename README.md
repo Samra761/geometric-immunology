@@ -75,6 +75,11 @@ GNNExplainer assigns importance scores to each atom. Output: contact residue imp
 
 Importance maps saved in `results/` folder.
 
+> **Note:** AUROC of 1.0 is expected because synthetic negatives were generated 
+> by shuffling node features, creating clearly separable distributions. 
+> A larger dataset with experimentally confirmed non-binders would produce 
+> more realistic evaluation metrics.
+
 ---
 ## Results Visualizations
 
