@@ -76,6 +76,22 @@ GNNExplainer assigns importance scores to each atom. Output: contact residue imp
 Importance maps saved in `results/` folder.
 
 ---
+## Results Visualizations
+
+### Training Loss Curve
+![Loss Curve](results/loss_curve.png)
+
+### AUROC over Training
+![AUROC Curve](results/auroc_curve.png)
+
+### Confusion Matrix
+![Confusion Matrix](results/confusion_matrix.png)
+
+### Sample Contact Residue Importance Map (1AO7)
+![1AO7 Importance](results/1AO7_importance.png)
+
+### Sample 3D Importance Map (1AO7)
+![1AO7 3D](results/1AO7_3d_importance.png)
 
 ## Project Structure
 
