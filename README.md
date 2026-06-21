@@ -1,6 +1,6 @@
 # Decoding TCR–pMHC Recognition via Geometric Deep Learning
 
-**Course Project | AI ITSOLERA | Due: July 3, 2026**
+**Project 01 | ML ITSOLERA | Due: July 3, 2026**
 
 ---
 
